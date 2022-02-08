@@ -382,6 +382,9 @@ void DumpCustom::format_magic_string_binary()
   // use negative ntimestep as marker for new format
   bigint fmtlen = strlen(MAGIC_STRING);
   bigint marker = -fmtlen;
+  fprintf(screen, "format_magic_string_binary\n");
+  fprintf(screen, "marker %d\n", marker);
+  fprintf(screen, "magic string %s\n", MAGIC_STRING);
   fwrite(&marker, sizeof(bigint), 1, fp);
   fwrite(MAGIC_STRING, sizeof(char), fmtlen, fp);
 }
@@ -392,6 +395,7 @@ void DumpCustom::format_endian_binary()
 {
   int endian = ENDIAN;
   fwrite(&endian, sizeof(int), 1, fp);
+  fprintf(screen, "endian %d\n", endian);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -400,6 +404,7 @@ void DumpCustom::format_revision_binary()
 {
   int revision = FORMAT_REVISION;
   fwrite(&revision, sizeof(int), 1, fp);
+  fprintf(screen, "revision %d\n", revision);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -432,10 +437,12 @@ void DumpCustom::header_time_binary()
 {
   char flag = time_flag ? 1 : 0;
   fwrite(&flag, sizeof(char), 1, fp);
+  fprintf(screen, "time binary %s\n", flag);
 
   if (time_flag) {
     double t = compute_time();
     fwrite(&t, sizeof(double), 1, fp);
+    fprintf(screen, "time binary %\nf", t);
   }
 }
 
@@ -465,6 +472,7 @@ void DumpCustom::header_binary(bigint ndump)
   fwrite(&boxzlo,sizeof(double),1,fp);
   fwrite(&boxzhi,sizeof(double),1,fp);
   fwrite(&nfield,sizeof(int),1,fp);
+  fprintf(screen, "write box\n");
 
   header_unit_style_binary();
   header_time_binary();

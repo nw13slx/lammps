@@ -57,13 +57,18 @@ ReaderNative::~ReaderNative()
 
 int ReaderNative::read_time(bigint &ntimestep)
 {
+  fprintf(screen, "ReaderNative::read_time %d\n", platform::ftell(fp));
   if (binary) {
     int endian = 0x0001;
     revision = 0x0001;
     magic_string = "";
     unit_style = "";
-
+    fprintf(screen, "start a new frame %d\n", platform::ftell(fp));
     auto ret = fread(&ntimestep, sizeof(bigint), 1, fp);
+    fprintf(screen, "fread ret %d \n", ret);
+    fprintf(screen, "fread timestep %d \n", ntimestep);
+    if (ntimestep > 10)
+        error->one(FLERR,"timestep wrong");
 
     // detect end-of-file
     if (ret != 1 || feof(fp)) return 1;
@@ -83,6 +88,11 @@ int ReaderNative::read_time(bigint &ntimestep)
 
       // read the real ntimestep
       read_buf(&ntimestep, sizeof(bigint), 1);
+      fprintf(screen, "current timestep %d \n", ntimestep);
+    }else{
+      //leleslx
+      // first bigint encodes negative format name length
+      // read_buf(&ntimestep, sizeof(bigint), 1);
     }
 
   } else {
@@ -115,6 +125,7 @@ int ReaderNative::read_time(bigint &ntimestep)
 
 void ReaderNative::skip()
 {
+  fprintf(screen, "ReaderNative::skip %d\n", platform::ftell(fp));
   if (binary) {
     int triclinic;
     skip_buf(sizeof(bigint));
@@ -160,6 +171,7 @@ void ReaderNative::skip()
 
 void ReaderNative::skip_reading_magic_str()
 {
+  fprintf(screen, "ReaderNative::skip_reading_magic_str %d\n", platform::ftell(fp));
   if (is_known_magic_str() && revision > 0x0001) {
     int len;
     read_buf(&len, sizeof(int), 1);
@@ -176,7 +188,9 @@ void ReaderNative::skip_reading_magic_str()
     if (len < 0) error->one(FLERR,"Dump file is invalid or corrupted");
     skip_buf(sizeof(char)*len);
   }
+  read_buf(&nchunk, sizeof(int), 1);
 }
+
 
 /* ----------------------------------------------------------------------
    read remaining header info:
@@ -199,12 +213,15 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
                                  int scaleflag, int wrapflag, int &fieldflag,
                                  int &xflag, int &yflag, int &zflag)
 {
+  fprintf(screen, "ReaderNative::read_header %d\n", platform::ftell(fp));
   bigint natoms = 0;
   int len = 0;
   std::string labelline;
 
   if (binary) {
     read_buf(&natoms, sizeof(bigint), 1);
+
+    fprintf(screen, "natoms %d\n", natoms);
 
     boxinfo = 1;
     triclinic = 0;
@@ -225,8 +242,14 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
     // extract column labels and match to requested fields
     read_buf(&size_one, sizeof(int), 1);
 
+    fprintf(screen, "box x %f %f %f \n ", box[0][0], box[0][1], box[0][2]);
+    fprintf(screen, "box y %f %f %f \n ", box[1][0], box[1][1], box[1][2]);
+    fprintf(screen, "box z %f %f %f \n ", box[2][0], box[2][1], box[2][2]);
+    fprintf(screen, "size_one %d\n", size_one);
+
     if (!fieldinfo) {
       skip_reading_magic_str();
+      fprintf(screen, "ReaderNative::read_header end %d\n", platform::ftell(fp));
       return natoms;
     }
 
@@ -235,6 +258,7 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
       // newer format includes units string, columns string
       // and time
       read_buf(&len, sizeof(int), 1);
+      fprintf(screen, "len %d\n", len);
 
       if (len > 0) {
         // has units
@@ -256,6 +280,7 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
     }
 
     read_buf(&nchunk, sizeof(int), 1);
+    fprintf(screen, "nchunk %d\n", nchunk);
     ichunk = 0;
     iatom_chunk = 0;
   } else {
@@ -308,6 +333,7 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
 
 
   if (nwords == 0) {
+    fprintf(screen, "ReaderNative::read_header end %d\n", platform::ftell(fp));
     return 1;
   }
 
@@ -436,6 +462,7 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
   for (int i = 0; i < nfield; i++)
     if (fieldindex[i] < 0) fieldflag = -1;
 
+  fprintf(screen, "ReaderNative::read_header end %d\n", platform::ftell(fp));
   return natoms;
 }
 
@@ -448,6 +475,7 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
 
 void ReaderNative::read_atoms(int n, int nfield, double **fields)
 {
+  fprintf(screen, "ReaderNative::read_atoms %d\n", platform::ftell(fp));
   if (binary) {
     if (feof(fp)) {
       error->one(FLERR,"Unexpected end of dump file");
@@ -460,6 +488,7 @@ void ReaderNative::read_atoms(int n, int nfield, double **fields)
       // if the last chunk has finished
       if (iatom_chunk == 0) {
           read_buf(&natom_chunk, sizeof(int), 1);
+          fprintf(screen, "natom_chunk %d", natom_chunk);
           read_double_chunk(natom_chunk);
           natom_chunk /= size_one;
           m = 0;
@@ -480,6 +509,11 @@ void ReaderNative::read_atoms(int n, int nfield, double **fields)
         iatom_chunk = 0;
         ichunk++;
       }
+      fprintf(screen, "--iatom %5d/%5d", i, n);
+      for (int k = 0; k < nfield; k++)
+          fprintf(screen, " %10f", fields[i][k]);
+      fprintf(screen, "\n");
+
     }
   } else {
     for (int i = 0; i < n; i++) {
@@ -527,28 +561,54 @@ void ReaderNative::read_lines(int n)
 
 void ReaderNative::read_buf(void * ptr, size_t size, size_t count)
 {
+  fprintf(screen, "ReaderNative::read_buf %d %d\n", platform::ftell(fp), size);
   utils::sfread(FLERR, ptr, size, count, fp, nullptr, error);
+  if (size == sizeof(char)){
+    fprintf(screen, "buf char\n");
+  } else if (size == sizeof(int)){
+    int * number = (int *) ptr;
+    for (int idx=0; idx< count; idx++)
+      fprintf(screen, "buf int %5d/%5d %20d\n", idx, count, number[idx]);
+  }else if (size == sizeof(double)){
+    double * number = (double *) ptr;
+    bigint * number_int = (bigint *) ptr;
+    for (int idx=0; idx< count; idx++)
+      fprintf(screen, "buf double %5d/%5d %20f %20d\n", idx, count, number[idx], number_int[idx]);
+  }else if (size == sizeof(bool)){
+    bool * number = (bool *) ptr;
+    for (int idx=0; idx< count; idx++)
+      fprintf(screen, "buf double %5d/%5d %20d\n", idx, count, number[idx]);
+  }else{
+    fprintf(screen, "buf unkown size %d %s\n", size, (char *)ptr);
+  }
 }
 
 std::string ReaderNative::read_binary_str(size_t size)
 {
+  fprintf(screen, "ReaderNative::read_binary_str %d\n", size);
   std::string str(size, '\0');
   read_buf(&str[0], sizeof(char), size);
+  fprintf(screen, "buf string %s\n", str.c_str());
   return str;
 }
 
 void ReaderNative::read_double_chunk(size_t count)
 {
+  fprintf(screen, "ReaderNative::read_double_chunk %d\n", count);
   // extend buffer to fit chunk size
   if (count > maxbuf) {
     memory->grow(databuf,count,"reader:databuf");
     maxbuf = count;
   }
   read_buf(databuf, sizeof(double), count);
+  for (int idx=0; idx<count; idx++){
+    fprintf(screen, "double_chunk %d/%d %f \n", idx, count, databuf[idx]);
+  }
 }
 
 void ReaderNative::skip_buf(size_t size)
 {
+  fprintf(screen, "ReaderNative::skip_buf %d\n", size);
   bigint pos = platform::ftell(fp);
   pos += size;
   platform::fseek(fp,pos);
