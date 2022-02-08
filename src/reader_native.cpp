@@ -227,6 +227,7 @@ bigint ReaderNative::read_header(double box[3][3], int &boxinfo, int &triclinic,
 
     if (!fieldinfo) {
       skip_reading_magic_str();
+      read_buf(&nchunk, sizeof(int), 1);
       return natoms;
     }
 
